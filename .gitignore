@@ -1,0 +1,4 @@
+.vscode/
+input_manager
+*.o
+main.cpp
