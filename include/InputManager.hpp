@@ -37,6 +37,7 @@
             void _setupTermios();
             void _restoreTermios();
             void _displayInput(int initialLen);
+            void _finalDisplayInput(int initialLen);
             void _handleChar(char c);
             void _addChar(char c);
             void _removeChar();

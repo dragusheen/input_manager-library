@@ -30,6 +30,7 @@ void InputManager::_restoreTermios()
 
 std::string InputManager::readInput(std::list<std::string> autocomplete_options)
 {
+    int len = 0;
     char c = 0;
     _input.clear();
     _input.push_back(-1);
@@ -39,14 +40,16 @@ std::string InputManager::readInput(std::list<std::string> autocomplete_options)
 
     _displayInput(0);
     while (c != '\n') {
-        int len = _input.size();
+        len = _input.size();
         c = getchar();
         _handleChar(c);
-        if (c == '\n')
+        if (c == '\n') {
             break;
+        }
         _displayInput(len);
     }
 
+    _finalDisplayInput(len);
     _restoreTermios();
     std::string str = _makeString();
     if (std::find(_history.begin(), _history.end(), str) == _history.end())
@@ -65,6 +68,16 @@ void InputManager::_displayInput(int initialLen) {
     std::cout << std::flush;
 }
 
+void InputManager::_finalDisplayInput(int initialLen) {
+    for (int i = 0; i <= initialLen; i++)
+        std::cout << "\b \b";
+    for (auto &c : _input)
+        if (c != -1)
+            std::cout << c;
+    std::cout << std::flush;
+}
+
+
 void InputManager::_handleChar(char c)
 {
     switch (c)
@@ -80,6 +93,8 @@ void InputManager::_handleChar(char c)
         break;
     case 9: // Tab
         _autocomplete();
+        break;
+    case 10: // New line
         break;
     case 27: // Arrow keys
         getchar();

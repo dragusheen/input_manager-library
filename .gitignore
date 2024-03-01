@@ -2,3 +2,5 @@
 input_manager
 *.o
 main.cpp
+libInputManager.a
+a.out
