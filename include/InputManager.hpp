@@ -24,14 +24,20 @@
                     const char *what() const throw() { return "EOF"; }
             };
             static InputManager &getInstance();
-            std::string readInput(std::list<std::string> autocomplete_options = std::list<std::string>());
+            std::string readInput();
+            void setAutocompleteOptions(std::list<std::string> autocomplete_options);
+            void setHistory(std::list<std::string> history);
+            void clearHistory();
+            void clearAutocompleteOptions();
+            std::list<std::string> getHistory() const;
+            std::list<std::string> getAutocompleteOptions() const;
 
         private:
             InputManager() = default;
-            std::list<std::string> _history;
             std::list<char> _input;
-            int _historyIndex = 0;
             struct termios _oldTermios;
+            int _historyIndex = 0;
+            std::list<std::string> _history;
             std::list<std::string> _autocomplete_options;
 
             void _setupTermios();

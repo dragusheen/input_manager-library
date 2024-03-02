@@ -13,6 +13,38 @@ InputManager &InputManager::getInstance()
     return instance;
 }
 
+
+void InputManager::setAutocompleteOptions(std::list<std::string> autocomplete_options)
+{
+    _autocomplete_options = autocomplete_options;
+}
+
+void InputManager::setHistory(std::list<std::string> history)
+{
+    _history = history;
+}
+
+void InputManager::clearHistory()
+{
+    _history.clear();
+}
+
+void InputManager::clearAutocompleteOptions()
+{
+    _autocomplete_options.clear();
+}
+
+std::list<std::string> InputManager::getHistory() const
+{
+    return _history;
+}
+
+std::list<std::string> InputManager::getAutocompleteOptions() const
+{
+    return _autocomplete_options;
+}
+
+
 void InputManager::_setupTermios()
 {
     tcgetattr(STDIN_FILENO, &_oldTermios);
@@ -28,13 +60,12 @@ void InputManager::_restoreTermios()
     std::cout << "\033[?25h" << std::endl;
 }
 
-std::string InputManager::readInput(std::list<std::string> autocomplete_options)
+std::string InputManager::readInput()
 {
     int len = 0;
     char c = 0;
     _input.clear();
     _input.push_back(-1);
-    _autocomplete_options = autocomplete_options;
     _historyIndex = -1;
     _setupTermios();
 
