@@ -13,6 +13,15 @@ InputManager &InputManager::getInstance()
     return instance;
 }
 
+void InputManager::setPrompt(std::string prompt)
+{
+    _prompt = prompt;
+}
+
+void InputManager::unsetPrompt()
+{
+    _prompt = "";
+}
 
 void InputManager::setAutocompleteOptions(std::list<std::string> autocomplete_options)
 {
@@ -73,7 +82,7 @@ std::string InputManager::readInput()
     while (c != '\n') {
         len = _input.size();
         c = getchar();
-        _handleChar(c);
+        _handleChar(c, len);
         if (c == '\n') {
             break;
         }
@@ -89,8 +98,9 @@ std::string InputManager::readInput()
 }
 
 void InputManager::_displayInput(int initialLen) {
-    for (int i = 0; i <= initialLen; i++)
+    for (int i = 0; i <= initialLen + (int)_prompt.length(); i++)
         std::cout << "\b \b";
+    std::cout << _prompt;
     for (auto &c : _input)
         if (c == -1)
             std::cout << "\033[7m \033[0m";
@@ -100,8 +110,9 @@ void InputManager::_displayInput(int initialLen) {
 }
 
 void InputManager::_finalDisplayInput(int initialLen) {
-    for (int i = 0; i <= initialLen; i++)
+    for (int i = 0; i <= initialLen + (int)_prompt.length(); i++)
         std::cout << "\b \b";
+    std::cout << _prompt;
     for (auto &c : _input)
         if (c != -1)
             std::cout << c;
@@ -109,7 +120,7 @@ void InputManager::_finalDisplayInput(int initialLen) {
 }
 
 
-void InputManager::_handleChar(char c)
+void InputManager::_handleChar(char c, int initialLen)
 {
     switch (c)
     {
@@ -117,6 +128,7 @@ void InputManager::_handleChar(char c)
         _moveToStart();
         break;
     case 4: // Ctrl+D
+        _finalDisplayInput(initialLen);
         _restoreTermios();
         throw EOF_Exception();
     case 5: // Ctrl+E

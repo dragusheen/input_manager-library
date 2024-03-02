@@ -27,6 +27,8 @@
             std::string readInput();
             void setAutocompleteOptions(std::list<std::string> autocomplete_options);
             void setHistory(std::list<std::string> history);
+            void setPrompt(std::string prompt);
+            void unsetPrompt();
             void clearHistory();
             void clearAutocompleteOptions();
             std::list<std::string> getHistory() const;
@@ -39,12 +41,13 @@
             int _historyIndex = 0;
             std::list<std::string> _history;
             std::list<std::string> _autocomplete_options;
+            std::string _prompt = "";
 
             void _setupTermios();
             void _restoreTermios();
             void _displayInput(int initialLen);
             void _finalDisplayInput(int initialLen);
-            void _handleChar(char c);
+            void _handleChar(char c, int initialLen);
             void _addChar(char c);
             void _removeChar();
             void _swapRight();
