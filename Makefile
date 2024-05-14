@@ -1,38 +1,39 @@
 ##
-## EPITECH PROJECT, 2022
-## makefile
+## EPITECH PROJECT, 2023
+## client
 ## File description:
-## makefile of project
+## network
 ##
 
-SRC	=	$(wildcard src/*.cpp)	\
+SRC		=   src/InputManager.cpp
 
-OBJ = 	$(SRC:%.cpp=%.o)
+OBJ 	= 	$(patsubst src/%.cpp,object/%.o,$(SRC))
 
-LIB	=	libInputManager.a
+NAME	=	InputManager
 
-FLAGS	=	-std=c++20		\
-			-Wall			\
-			-Wextra			\
-			-Werror			\
+FLAGS	=	-Wall 	\
+			-Wextra	\
 			-I./include
 
 COMP	=	g++
 
-all:	$(LIB)
+$(NAME):	$(OBJ)
+	ar rc lib$(NAME).a $(OBJ)
 
-$(LIB):	$(OBJ)
-	ar rcs $(LIB) $(OBJ)
-
-%.o: %.cpp
-	$(COMP) $(FLAGS) -c -o $@ $<
+all:	$(NAME)
 
 clean:
-	@rm -f $(OBJ)
+	@rm -rf $(OBJ)
+	@rm -rf object
 
 fclean: clean
-	@rm -f $(LIB)
+	@rm -rf lib$(NAME).a
 
 re: fclean all
 
-.PHONY: all clean fclean re
+object/%.o: src/%.cpp
+	@mkdir -p $(@D)
+	@$(COMP) $(FLAGS) -c -o $@ $<
+
+test: all
+	g++ -o test main.cpp $(FLAGS) -L./ -l$(NAME)

@@ -1,36 +1,82 @@
 /*
 ** EPITECH PROJECT, 2024
-** InputManager
+** tmp
 ** File description:
-** library
+** InputManager
 */
 
 #include "InputManager.hpp"
 
-InputManager &InputManager::getInstance()
+
+const char *InputManager::EOF_exception::what() const noexcept
 {
-    static InputManager instance;
-    return instance;
+    return "EOF";
 }
 
-void InputManager::setPrompt(std::string prompt)
+
+InputManager::InputManager()
+{
+    _index = 0;
+    _input.clear();
+    _setupTermios();
+    _prompt = "";
+    _history.clear();
+    _historyIndex = 0;
+    _tabOptions.clear();
+
+    _inputMap[1] = &InputManager::_handleCtrlA;
+    _inputMap[4] = &InputManager::_handleCtrlD;
+    _inputMap[5] = &InputManager::_handleCtrlE;
+    _inputMap[9] = &InputManager::_handleTab;
+    _inputMap[10] = &InputManager::_handleEnter;
+    _inputMap[11] = &InputManager::_handleCtrlK;
+    _inputMap[21] = &InputManager::_handleCtrlU;
+    _inputMap[23] = &InputManager::_handleCtrlW;
+    _inputMap[27] = &InputManager::_handleArrow;
+    _inputMap[126] = &InputManager::_handleSuppr;
+    _inputMap[127] = &InputManager::_handleBackspace;
+}
+
+InputManager::~InputManager()
+{
+    _resetTermios();
+}
+
+
+std::string InputManager::getInput() const
+{
+    return _input;
+}
+
+std::string InputManager::getPrompt() const
+{
+    return _prompt;
+}
+
+std::vector<std::string> InputManager::getHistory() const
+{
+    return _history;
+}
+
+std::vector<std::string> InputManager::getTabOptions() const
+{
+    return _tabOptions;
+}
+
+
+void InputManager::setPrompt(const std::string &prompt)
 {
     _prompt = prompt;
 }
 
-void InputManager::unsetPrompt()
-{
-    _prompt = "";
-}
-
-void InputManager::setAutocompleteOptions(std::list<std::string> autocomplete_options)
-{
-    _autocomplete_options = autocomplete_options;
-}
-
-void InputManager::setHistory(std::list<std::string> history)
+void InputManager::setHistory(const std::vector<std::string> &history)
 {
     _history = history;
+}
+
+void InputManager::addHistory(const std::string &history)
+{
+    _history.push_back(history);
 }
 
 void InputManager::clearHistory()
@@ -38,261 +84,235 @@ void InputManager::clearHistory()
     _history.clear();
 }
 
-void InputManager::clearAutocompleteOptions()
+void InputManager::removeHistory(const std::string &history)
 {
-    _autocomplete_options.clear();
+    _history.erase(std::remove(_history.begin(), _history.end(), history), _history.end());
 }
 
-std::list<std::string> InputManager::getHistory() const
+void InputManager::setTabOptions(const std::vector<std::string> &tabOptions)
 {
-    return _history;
+    _tabOptions = tabOptions;
 }
 
-std::list<std::string> InputManager::getAutocompleteOptions() const
+void InputManager::addTabOption(const std::string &tabOption)
 {
-    return _autocomplete_options;
+    if (std::find(_tabOptions.begin(), _tabOptions.end(), tabOption) == _tabOptions.end())
+        _tabOptions.push_back(tabOption);
+}
+
+void InputManager::clearTabOptions()
+{
+    _tabOptions.clear();
+}
+
+void InputManager::removeTabOption(const std::string &tabOption)
+{
+    _tabOptions.erase(std::remove(_tabOptions.begin(), _tabOptions.end(), tabOption), _tabOptions.end());
+}
+
+
+std::string InputManager::readInput()
+{
+    _index = 0;
+    _input.clear();
+    _setupTermios();
+    _historyIndex = _history.size();
+    char c;
+    _end = false;
+    std::size_t len = _input.size();
+
+    _displayInput(len);
+    while (!_end) {
+        len = _input.size();
+        c = getchar();
+        _handleInput(c);
+        _displayInput(len);
+    }
+    _displayInput(len, true);
+    std::cout << std::endl;
+    _resetTermios();
+    if (!_input.empty()) {
+        if (!_history.empty()) {
+            if (_input != _history.back())
+                _history.push_back(_input);
+        } else
+            _history.push_back(_input);
+    }
+    return _input;
 }
 
 
 void InputManager::_setupTermios()
 {
-    tcgetattr(STDIN_FILENO, &_oldTermios);
-    struct termios newTermios = _oldTermios;
-    newTermios.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newTermios);
+    struct termios new_term;
+
+    tcgetattr(STDIN_FILENO, &_old);
+    new_term = _old;
+    new_term.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &new_term);
     std::cout << "\033[?25l";
 }
 
-void InputManager::_restoreTermios()
+void InputManager::_resetTermios()
 {
-    tcsetattr(STDIN_FILENO, TCSANOW, &_oldTermios);
-    std::cout << "\033[?25h" << std::endl;
+    tcsetattr(STDIN_FILENO, TCSANOW, &_old);
+    std::cout << "\033[?25h";
 }
 
-std::string InputManager::readInput()
+void InputManager::_handleInput(char c)
 {
-    int len = 0;
-    char c = 0;
-    _input.clear();
-    _input.push_back(-1);
-    _historyIndex = -1;
-    _setupTermios();
-
-    _displayInput(0);
-    while (c != '\n') {
-        len = _input.size();
-        c = getchar();
-        _handleChar(c, len);
-        if (c == '\n') {
-            break;
-        }
-        _displayInput(len);
-    }
-
-    _finalDisplayInput(len);
-    _restoreTermios();
-    std::string str = _makeString();
-    if (std::find(_history.begin(), _history.end(), str) == _history.end())
-        _history.push_front(str);
-    return str;
-}
-
-void InputManager::_displayInput(int initialLen) {
-    for (int i = 0; i <= initialLen + (int)_prompt.length(); i++)
-        std::cout << "\b \b";
-    std::cout << _prompt;
-    for (auto &c : _input)
-        if (c == -1)
-            std::cout << "\033[7m \033[0m";
-        else
-            std::cout << c;
-    std::cout << std::flush;
-}
-
-void InputManager::_finalDisplayInput(int initialLen) {
-    for (int i = 0; i <= initialLen + (int)_prompt.length(); i++)
-        std::cout << "\b \b";
-    std::cout << _prompt;
-    for (auto &c : _input)
-        if (c != -1)
-            std::cout << c;
-    std::cout << std::flush;
-}
-
-
-void InputManager::_handleChar(char c, int initialLen)
-{
-    switch (c)
-    {
-    case 1: // Ctrl+A
-        _moveToStart();
-        break;
-    case 4: // Ctrl+D
-        _finalDisplayInput(initialLen);
-        _restoreTermios();
-        throw EOF_Exception();
-    case 5: // Ctrl+E
-        _moveToEnd();
-        break;
-    case 9: // Tab
-        _autocomplete();
-        break;
-    case 10: // New line
-        break;
-    case 27: // Arrow keys
-        getchar();
-        switch (getchar())
-        {
-        case 65: // Up arrow
-            _historyUp();
-            break;
-        case 66: // Down arrow
-            _historyDown();
-            break;
-        case 67: // Right arrow
-            _swapRight();
-            break;
-        case 68: // Left arrow
-            _swapLeft();
-            break;
-        }
-        break;
-    case 127: // Backspace
-        _removeChar();
-        break;
-    default: // Any other character
+    if (_inputMap.find(c) != _inputMap.end())
+        (this->*_inputMap[c])();
+    else
         _addChar(c);
-        break;
-    }
 }
 
 void InputManager::_addChar(char c)
 {
-    auto it = std::find(_input.begin(), _input.end(), -1);
-
-    if (it != _input.end())
-        _input.insert(it, c);
+    _input.insert(_input.begin() + _index, c);
+    _index++;
+    _historyIndex = _history.size();
 }
 
-void InputManager::_removeChar()
+
+void InputManager::_displayInput(std::size_t len, bool clear)
 {
-    auto it = std::find(_input.begin(), _input.end(), -1);
-
-    if (it != _input.begin())
-        _input.erase(std::prev(it));
-}
-
-void InputManager::_swapRight()
-{
-    auto it = std::find(_input.begin(), _input.end(), -1);
-
-    if (it != std::prev(_input.end()))
-        std::iter_swap(it, std::next(it));
-}
-
-void InputManager::_swapLeft()
-{
-    auto it = std::find(_input.begin(), _input.end(), -1);
-
-    if (it != _input.begin())
-        std::iter_swap(it, std::prev(it));
+    for (std::size_t i = 0; i <= len + _prompt.size(); i++)
+        std::cout << "\b \b";
+    std::cout << _prompt;
+    for (std::size_t i = 0; i < _input.size(); i++) {
+        if (i == _index && !clear)
+            std::cout << "\033[7m" << _input[i] << "\033[0m";
+        else
+            std::cout << _input[i];
+    }
+    if (_index == _input.size() && !clear)
+        std::cout << "\033[7m \033[0m";
+    std::cout.flush();
 }
 
 void InputManager::_historyUp()
 {
-    if (_historyIndex >= (int)_history.size() - 1)
+    if (_historyIndex <= 0)
         return;
-    _historyIndex++;
-    auto it = _history.begin();
-    for (int i = 0; i < _historyIndex; i++)
-        it++;
-    _input.clear();
-    for (auto &c : *it)
-        _input.push_back(c);
-    _input.push_back(-1);
+    _historyIndex--;
+    _input = _history[_historyIndex];
+    _index = _input.size();
 }
 
 void InputManager::_historyDown()
 {
-    if (_historyIndex == 0) {
-        _historyIndex = -1;
-        _input.clear();
-        _input.push_back(-1);
-    }
-    if (_historyIndex < 0)
+    if (_historyIndex >= _history.size())
         return;
-    _historyIndex--;
-    auto it = _history.begin();
-    for (int i = 0; i < _historyIndex; i++)
-        it++;
-    _input.clear();
-    for (auto &c : *it)
-        _input.push_back(c);
-    _input.push_back(-1);
+    _historyIndex++;
+    if (_historyIndex == _history.size())
+        _input.clear();
+    else
+        _input = _history[_historyIndex];
+    _index = _input.size();
 }
 
-void InputManager::_moveToStart()
+
+void InputManager::_handleCtrlA()
 {
-    while (_input.front() != -1) {
-        auto it = std::find(_input.begin(), _input.end(), -1);
-        std::swap(*it, *std::prev(it));
-    }
+    _index = 0;
 }
 
-void InputManager::_moveToEnd()
+void InputManager::_handleCtrlD()
 {
-    while (_input.back() != -1) {
-        auto it = std::find(_input.begin(), _input.end(), -1);
-        std::swap(*it, *std::next(it));
-    }
+    _resetTermios();
+    throw EOF_exception();
 }
 
-void InputManager::_autocomplete()
+void InputManager::_handleCtrlE()
 {
-    std::list<std::string> matches;
+    _index = _input.size();
+}
 
-    for (auto &option : _autocomplete_options) {
-        if (option.find(_makeString()) == 0)
+void InputManager::_handleTab()
+{
+    if (_tabOptions.empty())
+        return;
+
+    std::vector<std::string> matches;
+    for (const std::string &option : _tabOptions) {
+        if (option.find(_input) == 0)
             matches.push_back(option);
     }
-
-    if (matches.size() >= 1) {
-        std::list<std::string> real_matches;
-        std::string str = _makeString();
-        for (auto &match : matches) {
-            if (match != str)
-                real_matches.push_back(match);
-        }
-        if (real_matches.size() == 1)
-            matches = real_matches;
-    }
-
+    if (matches.empty())
+        return;
     if (matches.size() == 1) {
-        _input.clear();
-        for (auto &c : matches.front())
-            _input.push_back(c);
-        _input.push_back(-1);
-    } else if (matches.size() > 1) {
-        std::string str = _makeString();
-        std::cout << std::endl;
-        for (auto &match : matches) {
-            if (match != str)
-                std::cout << match << "\t";
-        }
-        std::cout << "\n" << std::endl;
-        _displayInput(0);
+        _input = matches[0];
+        _index = _input.size();
     } else {
-        std::cout << "\a";
+        std::string common = matches[0];
+        for (std::size_t i = 1; i < matches.size(); i++) {
+            std::size_t j = 0;
+            while (j < common.size() && j < matches[i].size() && common[j] == matches[i][j])
+                j++;
+            common = common.substr(0, j);
+        }
+        _input = common;
+        _index = _input.size();
+        _displayInput(_input.size(), true);
+        std::cout << std::endl;
+        for (std::size_t i = 0; i < matches.size(); i++)
+            std::cout << matches[i] << (i == matches.size() - 1 ? "\n" : "\t");
+        std::cout << std::endl;
     }
 }
 
-std::string InputManager::_makeString()
+void InputManager::_handleEnter()
 {
-    std::string str;
+    _end = true;
+}
 
-    for (auto &c : _input) {
-        if (c != -1 && c != '\n')
-            str += c;
+void InputManager::_handleCtrlK()
+{
+    while (_index < _input.size())
+        _input.pop_back();
+}
+
+void InputManager::_handleCtrlU()
+{
+    _input.clear();
+    _index = 0;
+}
+
+void InputManager::_handleCtrlW()
+{
+    for (std::size_t i = 0; i < _index; i++)
+        _input.erase(_input.begin());
+    _index = 0;
+}
+
+void InputManager::_handleArrow()
+{
+    char c = getchar();
+
+    if (c == 91) {
+        c = getchar();
+        if (c == 65) // down arrow
+            _historyUp();
+        if (c == 66) // up arrow
+            _historyDown();
+        if (c == 67 && _index < _input.size()) // right arrow
+            _index++;
+        if (c == 68 && _index > 0) // left arrow
+            _index--;
     }
-    return str;
+}
+
+void InputManager::_handleSuppr()
+{
+    if (_index < _input.size())
+        _input.erase(_input.begin() + _index);
+}
+
+void InputManager::_handleBackspace()
+{
+    if (_index > 0) {
+        _input.erase(_input.begin() + _index - 1);
+        _index--;
+    }
 }
